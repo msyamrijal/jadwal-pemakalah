@@ -226,7 +226,8 @@ const elements = {
     content: document.getElementById('popup-content'),
     container: document.getElementById('popup')
   },
-  pwaPopup: document.getElementById('add-to-home-popup')
+  pwaPopup: document.getElementById('add-to-home-popup'),
+  pwaCloseBtn: document.getElementById('close-pwa-popup')
 };
 
 // Utility Functions
@@ -349,64 +350,67 @@ const dataManager = {
 const uiController = {
   init: () => {
     // Event Listeners
-    elements.classSelect.addEventListener('change', uiController.handleClassChange);
-    elements.subjectSelect.addEventListener('change', uiController.handleSearch);
-    elements.nameInput.addEventListener('input', utils.debounce(uiController.handleSearch, 300));
-    elements.driveDropdown.addEventListener("change", uiController.handleDriveSelect);
-    document.getElementById('close-popup').addEventListener('click', uiController.closePopup);
-    document.getElementById('add-to-home').addEventListener('click', uiController.handlePWAInstall);
+    elements.classSelect.addEventListener('change', this.handleClassChange);
+    elements.subjectSelect.addEventListener('change', this.handleSearch);
+    elements.nameInput.addEventListener('input', utils.debounce(this.handleSearch, 300));
+    elements.driveDropdown.addEventListener("change", this.handleDriveSelect);
+    document.getElementById('close-popup').addEventListener('click', this.closePopup);
+    elements.pwaCloseBtn.addEventListener('click', this.closePWAPopup);
+    document.getElementById('add-to-home').addEventListener('click', this.handlePWAInstall);
 
-    // Load Saved Preferences
+    // Load Preferences
     const savedClass = localStorage.getItem('selectedClass');
     if(savedClass) elements.classSelect.value = savedClass;
     
-    // Initialize Calendar
+    // Initialize Components
     const calendar = calendarManager.init();
     calendar.render();
 
     // Initialize PWA
-    uiController.initPWA();
+    this.initPWA();
   },
 
-  handleClassChange: () => {
+  handleClassChange: function() {
     localStorage.setItem('selectedClass', elements.classSelect.value);
-    uiController.updateSubjects();
-    uiController.handleSearch();
+    this.updateSubjects();
+    this.handleSearch();
   },
 
-  updateSubjects: () => {
+  updateSubjects: function() {
     const selectedClass = elements.classSelect.value;
-    const subjects = selectedClass === 'all' ? 
-      [...new Set(Object.values(dataByClass).flatMap(c => Object.keys(c)))] : 
-      Object.keys(dataByClass[selectedClass] || {});
-    
+    const subjects = selectedClass === 'all' 
+      ? [...new Set(Object.values(dataByClass).flatMap(c => Object.keys(c))] 
+      : Object.keys(dataByClass[selectedClass] || {});
+
     elements.subjectSelect.innerHTML = '<option value="">Semua Mata Kuliah</option>';
     subjects.forEach(subject => {
       elements.subjectSelect.innerHTML += `<option value="${subject}">${subject}</option>`;
     });
   },
 
-  handleSearch: () => {
+  handleSearch: function() {
     const query = elements.nameInput.value.trim().toLowerCase();
     const showCalendar = !query;
     
-    // Toggle UI Elements
+    // Toggle Visibility
     elements.calendarEl.style.display = showCalendar ? '' : 'none';
-    if(elements.printContainer) elements.printContainer.style.display = showCalendar ? '' : 'none';
-    
+    if(elements.printContainer) {
+      elements.printContainer.style.display = showCalendar ? '' : 'none';
+    }
+
     // Show Loading
     const spinner = document.createElement('div');
     spinner.className = 'loading-spinner';
     elements.resultsDiv.innerHTML = '';
     elements.resultsDiv.appendChild(spinner);
 
-    // Process Data
+    // Filter Data
     const filteredData = dataManager.getFilteredData(
       elements.classSelect.value,
       elements.subjectSelect.value,
       query
     );
-    
+
     // Render Results
     setTimeout(() => {
       spinner.remove();
@@ -416,7 +420,7 @@ const uiController = {
 
   handleDriveSelect: function(event) {
     const url = event.target.value;
-    if(url && url.startsWith('https://drive.google.com')) {
+    if(url?.startsWith('https://drive.google.com')) {
       window.open(url, "_blank");
     } else {
       alert('Link Google Drive tidak valid!');
@@ -424,30 +428,39 @@ const uiController = {
     event.target.selectedIndex = 0;
   },
 
-  closePopup: () => {
+  closePopup: function() {
     elements.popup.overlay.style.display = 'none';
     elements.popup.container.style.display = 'none';
   },
 
-  initPWA: () => {
+  initPWA: function() {
     let deferredPrompt;
     
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      uiController.showInstallPrompt();
+      this.showInstallPrompt();
     });
 
-    // Manual trigger untuk iOS
     if(utils.detectIOS() && !utils.isStandalone()) {
-      setTimeout(uiController.showInstallPrompt, 3000);
+      setTimeout(() => this.showInstallPrompt(), 3000);
     }
   },
 
-  showInstallPrompt: () => {
-    // Tampilkan popup
-    elements.pwaPopup.style.display = 'flex';
+  closePWAPopup: function() {
+    clearTimeout(elements.pwaPopup.autoCloseTimer);
+    elements.pwaPopup.style.opacity = '0';
+    setTimeout(() => {
+      elements.pwaPopup.style.display = 'none';
+    }, 300);
+  },
+
+  showInstallPrompt: function() {
+    clearTimeout(elements.pwaPopup.autoCloseTimer);
     
+    elements.pwaPopup.style.display = 'flex';
+    elements.pwaPopup.style.opacity = '1';
+
     if(utils.detectIOS()) {
       elements.pwaPopup.querySelector('p').textContent = 
         'Untuk menambahkan ke Layar Utama: tekan tombol "Bagikan" lalu pilih "Tambah ke Layar Utama".';
@@ -456,29 +469,23 @@ const uiController = {
       elements.pwaPopup.querySelector('#add-to-home').style.display = 'inline-block';
     }
 
-    // Set timeout untuk sembunyi otomatis setelah 3 detik
-    const autoCloseTimer = setTimeout(() => {
-      elements.pwaPopup.style.display = 'none';
+    elements.pwaPopup.autoCloseTimer = setTimeout(() => {
+      this.closePWAPopup();
     }, 3000);
-
-    // Simpan timer reference
-    elements.pwaPopup.autoCloseTimer = autoCloseTimer;
   },
 
-  handlePWAInstall: async () => {
-    // Hentikan timer jika ada
+  handlePWAInstall: async function() {
     clearTimeout(elements.pwaPopup.autoCloseTimer);
     
     if(window.deferredPrompt) {
       await window.deferredPrompt.prompt();
       const { outcome } = await window.deferredPrompt.userChoice;
-      console.log(`User response: ${outcome}`);
+      console.log('User response:', outcome);
       window.deferredPrompt = null;
     }
-    elements.pwaPopup.style.display = 'none';
+    this.closePWAPopup();
   }
 };
 
-// Initialize Application
-document.addEventListener('DOMContentLoaded', uiController.init);
-
+// Initialize
+document.addEventListener('DOMContentLoaded', () => uiController.init());
