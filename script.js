@@ -445,6 +445,9 @@ const uiController = {
   },
 
   showInstallPrompt: () => {
+    // Tampilkan popup
+    elements.pwaPopup.style.display = 'flex';
+    
     if(utils.detectIOS()) {
       elements.pwaPopup.querySelector('p').textContent = 
         'Untuk menambahkan ke Layar Utama: tekan tombol "Bagikan" lalu pilih "Tambah ke Layar Utama".';
@@ -452,10 +455,20 @@ const uiController = {
     } else {
       elements.pwaPopup.querySelector('#add-to-home').style.display = 'inline-block';
     }
-    elements.pwaPopup.style.display = 'flex';
+
+    // Set timeout untuk sembunyi otomatis setelah 3 detik
+    const autoCloseTimer = setTimeout(() => {
+      elements.pwaPopup.style.display = 'none';
+    }, 3000);
+
+    // Simpan timer reference
+    elements.pwaPopup.autoCloseTimer = autoCloseTimer;
   },
 
   handlePWAInstall: async () => {
+    // Hentikan timer jika ada
+    clearTimeout(elements.pwaPopup.autoCloseTimer);
+    
     if(window.deferredPrompt) {
       await window.deferredPrompt.prompt();
       const { outcome } = await window.deferredPrompt.userChoice;
@@ -468,3 +481,4 @@ const uiController = {
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', uiController.init);
+
