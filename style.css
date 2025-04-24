@@ -296,6 +296,16 @@ input[type="text"]:focus {
   background: var(--secondary);
 }
 
+.add-to-home-popup {
+  opacity: 1;
+  transition: opacity 0.3s ease, display 0.3s ease;
+}
+
+.add-to-home-popup[hidden] {
+  display: none;
+  opacity: 0;
+}
+
 /* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(20px); }
